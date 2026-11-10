@@ -145,6 +145,7 @@ function record(path: string, sessionIds: string[], createdAt = '2026-07-24T00:0
     sessionIds: sessionIds.map(SessionId),
     createdAt,
     updatedAt: createdAt,
+    hidden: false,
   }
 }
 
@@ -395,6 +396,34 @@ describe('WorkspaceRegistry create and lookup', () => {
     expect(storedState(pool).workspaceIds).toEqual([second.id, first.id])
     expect(await registry.resolveByPath(alias)).toBe(first)
     expect(await registry.resolveByPath(await makeDir('unowned'))).toBeUndefined()
+  })
+
+  it('persists presentation-only hiding without changing membership or order', async () => {
+    const dir = await makeDir('hidden')
+    const { registry, pool } = await harness()
+    const workspace = await registry.create(dir)
+    const createdAt = workspace.createdAt
+    expect(workspace.hidden).toBe(false)
+    await workspace.setHidden(true)
+    expect(workspace.hidden).toBe(true)
+    expect(workspace.sessionIds).toEqual([])
+    expect(workspace.createdAt).toBe(createdAt)
+    expect(storedRecord(pool, workspace.id).hidden).toBe(true)
+    const reopened = await harness({ pool })
+    expect(reopened.registry.get(workspace.id)?.hidden).toBe(true)
+    await workspace.setHidden(false)
+    expect(storedRecord(pool, workspace.id).hidden).toBe(false)
+  })
+
+  it('reads records written before the hidden field as visible', async () => {
+    const dir = await makeDir('legacy')
+    const legacy = record(dir, [])
+    delete (legacy as { hidden?: boolean }).hidden
+    const pool = storedPool([[WorkspaceId('legacy'), legacy]], {
+      initialized: true, workspaceIds: [WorkspaceId('legacy')], archivedSessionIds: [], pinnedSessionIds: [],
+    })
+    const { registry } = await harness({ pool })
+    expect(registry.get(WorkspaceId('legacy'))?.hidden).toBe(false)
   })
 
   it('serializes concurrent same-path creates into one entity', async () => {

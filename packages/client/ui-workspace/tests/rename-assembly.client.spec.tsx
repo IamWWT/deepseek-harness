@@ -79,7 +79,7 @@ async function seedWorkspace(runtime: SlotTestRuntime): Promise<void> {
   await runtime.workspaces.update((draft) => {
     draft.items = [{
       workspaceId: 'w1' as WorkspaceId, title: 'alpha', path: '/w/alpha',
-      sessionIds: [SID], createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z',
+      sessionIds: [SID], createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z', hidden: false,
     }] as never
   })
 }

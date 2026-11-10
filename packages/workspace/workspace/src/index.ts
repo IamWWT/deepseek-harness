@@ -523,6 +523,7 @@ export class WorkspaceRegistry extends Service {
       sessionIds: [],
       createdAt: now,
       updatedAt: now,
+      hidden: false,
     }
     const entity = new WorkspaceEntity(this.host, id, record)
     this.entities.set(id, entity)
@@ -687,6 +688,7 @@ export class WorkspaceRegistry extends Service {
           sessionIds,
           createdAt,
           updatedAt: createdAt,
+          hidden: false,
         }
         await table.put(id, record)
         byPath.set(group.path, id)

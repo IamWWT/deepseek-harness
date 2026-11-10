@@ -75,7 +75,8 @@ export function WorkspacePickFlow({
   selectedId,
 }: WorkspacePickFlowProps) {
   const workspaceSnapshot = useWorkspaces(state => state)
-  const workspaces = workspaceSnapshot.items
+  // Hidden Workspaces are plugin-owned presentation targets, not user choices.
+  const workspaces = workspaceSnapshot.items.filter(workspace => !workspace.hidden)
   const getAnchorRect = useCallback(
     () => anchorRef?.current?.getBoundingClientRect() ?? null,
     [anchorRef],

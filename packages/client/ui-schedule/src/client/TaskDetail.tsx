@@ -182,7 +182,8 @@ function TaskDetailView(props: TaskDetailProps): ReactNode {
   const { task, id, tab, onTabChange, onClose, onDelete, onConfirm, confirmId, onDeleted,
     onRetry, onOpenSession, loadHistory, status, deleting, useSessions, useWorkspaces, t, hostActions } = props
   const sessions = useSessions(snapshot => snapshot)
-  const workspaces = useWorkspaces(snapshot => snapshot)
+  const workspaceSnapshot = useWorkspaces(snapshot => snapshot)
+  const workspaces = { ...workspaceSnapshot, items: workspaceSnapshot.items.filter(workspace => !workspace.hidden) }
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(() => taskDraft(task))
   const [base, setBase] = useState(task)

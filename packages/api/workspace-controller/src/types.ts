@@ -27,6 +27,8 @@ export interface WorkspaceView {
   readonly createdAt: string
   /** ISO-8601 last-mutation instant. */
   readonly updatedAt: string
+  /** Presentation-only: default browsing omits this Workspace and its Sessions. */
+  readonly hidden: boolean
 }
 
 declare module '@deepseek-ai/dsh-typert-protocol' {

@@ -99,12 +99,20 @@ export class WorkspaceEntity implements Workspace {
     return this.record.updatedAt
   }
 
+  get hidden(): boolean {
+    return this.record.hidden
+  }
+
   get sessionIds(): readonly SessionId[] {
     return this.record.sessionIds.filter(id => this.host.candidateMatches(id, this.record.path))
   }
 
   async setTitle(title: string): Promise<void> {
     await this.mutate(record => ({ ...record, title }))
+  }
+
+  async setHidden(hidden: boolean): Promise<void> {
+    await this.mutate(record => record.hidden === hidden ? record : { ...record, hidden })
   }
 
   async attachSession(sessionId: SessionId): Promise<void> {

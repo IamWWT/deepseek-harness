@@ -76,7 +76,7 @@ const branchedList = (
 }
 const workspace = (id: string, sessionIds: string[], title = id): WorkspaceView => ({
   workspaceId: wid(id), path: `/projects/${id}`, title,
-  sessionIds: sessionIds.map(sid), createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z',
+  sessionIds: sessionIds.map(sid), createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z', hidden: false,
 })
 const view = (expandedGroups: readonly string[] = [], ungroupedOrder?: readonly string[]) => ({
   expandedGroups,
@@ -93,10 +93,12 @@ const rowState = (options: {
   pinned?: readonly string[]
   archived?: readonly string[]
   archivedFilter?: ArchivedFilter
+  hidden?: readonly string[]
 } = {}) => ({
   pinnedSessionIds: (options.pinned ?? []).map(sid),
   archivedSessionIds: (options.archived ?? []).map(sid),
   archivedFilter: options.archivedFilter ?? 'default' as const,
+  hiddenSessionIds: (options.hidden ?? []).map(sid),
 })
 const noRows = rowState()
 
@@ -487,6 +489,18 @@ describe('deriveGroups', () => {
     expect(groups[0]!.sessionCount).toBe(1)
   })
 
+  it('omits hidden Workspace groups and every member Session from Ungrouped', () => {
+    const visible = summary('visible', 3, '/projects/shown')
+    const worker = summary('worker', 2, '/state/work/ticket')
+    const groups = deriveGroups(
+      list(visible, worker),
+      [workspace('shown', ['visible']), { ...workspace('workers', ['worker']), hidden: true }],
+      noRows, noAttention, view(['shown', 'workers', UNGROUPED_KEY]),
+    )
+    expect(groups.map(group => group.key)).toEqual(['shown'])
+    expect(groups[0]!.sessions.map(node => node.id)).toEqual([visible.id])
+  })
+
   it('leads expanded groups with pinned rows in the supplied order', () => {
     const sessions = list(summary('a', 4), summary('b', 3), summary('c', 2), summary('d', 1))
     const groups = deriveGroups(
@@ -598,6 +612,19 @@ describe('deriveFlat', () => {
     expect(rows.map(row => row.id)).toEqual([currentBlank.id, sid('real')])
     expect(rows.map(row => row.title)).toEqual(['', 'real'])
     expect(rows.map(row => row.blank)).toEqual([true, false])
+  })
+
+  it('omits hidden member Sessions from the flat list and search', () => {
+    const kept = summary('kept', 2)
+    const worker = summary('worker', 1)
+    worker.title = worker.displayTitle = 'worker needle'
+    const sessions = list(kept, worker)
+    expect(visibleSessionIds(sessions, noArchive, 'default', [worker.id])).toEqual([kept.id])
+    expect(deriveFlat(sessions, sessions.ids, rowState({ hidden: ['worker'] }), noAttention).map(row => row.id))
+      .toEqual([kept.id])
+    expect(deriveSearchResults(
+      sessions, [], 'needle', noArchive, 'default', noAttention, { items: [], hasMore: false }, 10, [worker.id],
+    ).items).toEqual([])
   })
 
   it('hides archived sessions in flat mode', () => {
@@ -828,6 +855,35 @@ describe('deriveSearchResults', () => {
     expect(backendMore.hasMore).toBe(true)
     expect(deriveSearchResults(list(), [], '  ', noArchive, 'default', noAttention, { items: [], hasMore: true }, 3))
       .toEqual({ items: [], hasMore: false })
+  })
+
+  it('counts only surviving rows toward the cap and the refine hint', () => {
+    const visible = [0, 1].map((index) => {
+      const item = summary(`visible-${String(index)}`, 10 - index)
+      item.title = item.displayTitle = `Needle ${String(index)}`
+      return item
+    })
+    const worker = [0, 1, 2].map((index) => {
+      const item = summary(`worker-${String(index)}`, 5 - index)
+      item.title = item.displayTitle = `Needle ticket ${String(index)}`
+      return item
+    })
+    const sessions = list(...visible, ...worker)
+    const result = deriveSearchResults(
+      sessions,
+      [{ ...workspace('workers', worker.map(item => item.id)), hidden: true }],
+      'needle',
+      noArchive,
+      'default',
+      noAttention,
+      { items: [{ sessionId: worker[0]!.id, snippet: 'needle body' }], hasMore: false },
+      2,
+      worker.map(item => item.id),
+    )
+    // Hidden matches occupy neither the cap nor the "narrow your search" hint,
+    // so the revealed rows always add something.
+    expect(result.items.map(item => item.id)).toEqual(visible.map(item => item.id))
+    expect(result.hasMore).toBe(false)
   })
 })
 

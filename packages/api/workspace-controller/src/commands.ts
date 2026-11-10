@@ -47,6 +47,9 @@ export class WorkspaceCommands {
       try {
         const existing = await this.ctx.workspaceRegistry.resolveByPath(request.path)
         if (existing !== undefined) {
+          // Explicit adoption is the recovery path for a hidden Workspace:
+          // the user naming its directory means it belongs in default browsing.
+          if (existing.hidden) await existing.setHidden(false)
           return { workspace: workspaceView(existing), created: false }
         }
         const workspace = await this.ctx.workspaceRegistry.create(request.path)

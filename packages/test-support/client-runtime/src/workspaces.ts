@@ -77,7 +77,10 @@ export class TestWorkspaces implements IWorkspaces {
       title: input.path,
       path: input.path,
       sessionIds: [],
-    } as unknown as WorkspaceView
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      hidden: false,
+    } as WorkspaceView
   }
 
   /**
@@ -101,7 +104,7 @@ export class TestWorkspaces implements IWorkspaces {
     this.calls.push({ method: 'rename', args: [workspaceId, title] })
     const stub = this.stubs.get('rename')
     if (stub !== undefined) return await (stub(workspaceId, title) as Promise<WorkspaceView>)
-    return { workspaceId, title, path: `/${title}`, sessionIds: [] } as unknown as WorkspaceView
+    return { workspaceId, title, path: `/${title}`, sessionIds: [], hidden: false } as unknown as WorkspaceView
   }
 
   /**
@@ -134,7 +137,7 @@ export class TestWorkspaces implements IWorkspaces {
     this.calls.push({ method: 'insertSessionBefore', args: [workspaceId, sessionId, beforeSessionId] })
     const stub = this.stubs.get('insertSessionBefore')
     if (stub !== undefined) return await (stub(workspaceId, sessionId, beforeSessionId) as Promise<WorkspaceView>)
-    return { workspaceId, title: '', path: '', sessionIds: [sessionId] } as unknown as WorkspaceView
+    return { workspaceId, title: '', path: '', sessionIds: [sessionId], hidden: false } as unknown as WorkspaceView
   }
 
   /**

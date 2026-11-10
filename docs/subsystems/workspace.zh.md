@@ -51,6 +51,14 @@ interface Workspace {
   readonly updatedAt: string
 
   /**
+   * Presentation-only visibility: a hidden Workspace and its Sessions are
+   * omitted from default browsing, pickers, and search, while remaining
+   * addressable by Session identity. Hiding never deletes the directory,
+   * Session logs, or membership.
+   */
+  readonly hidden: boolean
+
+  /**
    * Header-validated sessions in manually owned order: a new session is
    * prepended at attach, explicit reordering goes through
    * `insertSessionBefore`, and activity never reorders. The durable candidate
@@ -69,6 +77,13 @@ interface Workspace {
    * @returns resolution after durability.
    */
   setTitle(title: string): Promise<void>
+
+  /**
+   * Replace the presentation-only hidden flag durably.
+   * @param hidden - Whether default browsing omits this Workspace and its Sessions.
+   * @returns resolution after durability.
+   */
+  setHidden(hidden: boolean): Promise<void>
 
   /**
    * Prepend a session to this workspace's candidate account. An already
@@ -116,6 +131,8 @@ interface Workspace {
   status(): Promise<'ok' | 'missing-dir'>
 }
 ```
+
+隐藏工作区是展示目标，而不是删除或归档：`setHidden(true)` 保留记录、目录、成员关系与会话日志，而工作区浏览器、选择器与搜索会省略该工作区及其归属的所有 Session。消费方仍可按身份访问隐藏的工作区或 Session，`setHidden(false)` 会恢复记录位置，控制器的显式 `create` 会取消隐藏，因此重新采用目录就是恢复路径。该标记持久化，字段出现前写下的记录缺省为 false。
 
 所有权的真源是记录中有序的 `sessionIds`，绝不从会话 cwd 派生。成员资格将记录的 header cwd 与工作区路径校验；已有候选的完全限定 cwd 在路径解析或目录 stat 时返回 `ENOENT`，仍保留其归属。这会保留目录缺失或符号链接失效时的记账关系，但不会接纳新会话。失败的写入会拒绝（`insertSessionBefore` 的账本错误以 `WorkspaceMoveInvalidError` 拒绝，存储失败以普通错误拒绝）；每次被接受的变更都盖上 `updatedAt` 时间戳，并持久修剪不再通过成员资格检查的候选项。
 

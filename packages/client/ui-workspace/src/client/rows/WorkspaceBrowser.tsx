@@ -805,6 +805,7 @@ function SearchResults({
   workspaces,
   archivedSessionIds,
   archivedFilter,
+  hiddenSessionIds,
   query,
   remote,
   resultLimit,
@@ -814,6 +815,8 @@ function SearchResults({
 }: Pick<WorkspaceBrowserProps, 'useSessions' | 'useSessionStatus' | 'open' | 't' | 'usePanelInfo' | 'useSessionAccess'> & {
   workspaces: readonly WorkspaceView[]
   archivedSessionIds: readonly SessionNode['id'][]
+  /** Sessions owned by hidden Workspaces never match. */
+  hiddenSessionIds: readonly SessionNode['id'][]
   /** Search matches follow the archived filter selected for the list. */
   archivedFilter: ArchivedFilter
   /** Unarchive an archived result row in place. */
@@ -838,8 +841,9 @@ function SearchResults({
       statuses,
       currentRemote,
       resultLimit,
+      hiddenSessionIds,
     ),
-    [list, workspaces, query, archivedSessionIds, archivedFilter, statuses, currentRemote, resultLimit],
+    [list, workspaces, query, archivedSessionIds, archivedFilter, statuses, currentRemote, resultLimit, hiddenSessionIds],
   )
   const pending = currentRemote.status === 'loading'
   const currentId = panelActive
@@ -942,11 +946,18 @@ export function WorkspaceBrowser({
   // its identity across a language switch.
   const defaultWorkspaceName = t('workspace.defaultName')
   const workspaces = useMemo(
-    () => storedWorkspaces.map(workspace => ({
+    () => storedWorkspaces.filter(workspace => !workspace.hidden).map(workspace => ({
       ...workspace,
       title: workspaceDisplayTitle(workspace.title, defaultWorkspaceName),
     })),
     [storedWorkspaces, defaultWorkspaceName],
+  )
+  // Hidden Workspaces keep their rows and Session slots but are absent from
+  // every browsing surface; their Sessions must not fall through to Ungrouped
+  // or the flat list.
+  const hiddenSessionIds = useMemo(
+    () => storedWorkspaces.filter(workspace => workspace.hidden).flatMap(workspace => [...workspace.sessionIds]),
+    [storedWorkspaces],
   )
   const workspacePhase = useWorkspaces(state => state.phase)
   const workspaceStreamState = useWorkspaces(state => state.state)
@@ -979,16 +990,16 @@ export function WorkspaceBrowser({
     ? mainSessionId
     : undefined
   const ungroupedMemberIds = useMemo(() => {
-    const accounted = new Set(workspaces.flatMap(workspace => workspace.sessionIds))
+    const accounted = new Set([...workspaces.flatMap(workspace => workspace.sessionIds), ...hiddenSessionIds])
     return list.ids.filter(id => list.byId[id] !== undefined && !accounted.has(id))
-  }, [list, workspaces])
+  }, [hiddenSessionIds, list, workspaces])
   const orderState = useMemo(
     () => ({ pinnedSessionIds, archivedSessionIds }),
     [archivedSessionIds, pinnedSessionIds],
   )
   const rowState = useMemo<SessionRowState>(
-    () => ({ ...orderState, archivedFilter }),
-    [orderState, archivedFilter],
+    () => ({ ...orderState, archivedFilter, hiddenSessionIds }),
+    [orderState, archivedFilter, hiddenSessionIds],
   )
   const flatMemberIds = useMemo(() => sessionMemberIds(list), [list])
   const orderedWorkspaces = useMemo(() => workspaces.map((workspace) => {
@@ -1364,6 +1375,7 @@ export function WorkspaceBrowser({
               workspaces={workspaces}
               archivedSessionIds={archivedSessionIds}
               archivedFilter={archivedFilter}
+              hiddenSessionIds={hiddenSessionIds}
               query={normalizedQuery}
               remote={remoteSearch}
               resultLimit={searchResultLimit}

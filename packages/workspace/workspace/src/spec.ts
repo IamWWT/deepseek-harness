@@ -27,6 +27,8 @@ export const workspaceRecord = z.object({
   sessionIds: z.array(sessionId),
   createdAt: z.string(),
   updatedAt: z.string(),
+  /** Presentation-only: the row is omitted from default browsing and its Sessions from lists. */
+  hidden: z.boolean().default(false),
 })
 
 /** One stored workspace record, inferred from {@link workspaceRecord}. */

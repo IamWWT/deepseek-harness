@@ -68,7 +68,7 @@ const sessionState = (
 }
 const workspace = (id: string, sessionIds: string[], title = id): WorkspaceView => ({
   workspaceId: wid(id), path: `/projects/${id}`, title,
-  sessionIds: sessionIds.map(sid), createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z',
+  sessionIds: sessionIds.map(sid), createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z', hidden: false,
 })
 const workspaceState = (
   items: readonly WorkspaceView[],
@@ -266,6 +266,27 @@ describe('WorkspaceBrowser', () => {
       expect.stringContaining('tie-a'), expect.stringContaining('tie-b'), expect.stringContaining('blank'),
     ])
     expect(b.store.getSnapshot().orderBy).toBe('updated')
+  })
+
+  // Both Workspaces sit directly under an unregistered parent, so tree nesting
+  // keeps them as siblings and this one fixture drives all three groupings.
+  it.each(['workspace', 'flat', 'workspace-tree'] as const)('omits hidden Workspaces and their Sessions from %s browsing', (groupBy) => {
+    localStorage.clear()
+    const preferences = createWorkspaceViewStore().create()
+    preferences.actions.setGroupBy(groupBy)
+    preferences.actions.setGroupExpanded('shown', true)
+    preferences.actions.setGroupExpanded(UNGROUPED_KEY, true)
+    localStorage.setItem('dsh.workspace.view.v5', JSON.stringify(preferences.getSnapshot()))
+    mount({
+      useSessions: hook(sessionState([summary('visible', 2), summary('worker', 1)])),
+      useWorkspaces: hook(workspaceState([
+        workspace('shown', ['visible']),
+        { ...workspace('workers', ['worker']), hidden: true },
+      ])),
+    })
+    expect(screen.getByText('visible')).toBeTruthy()
+    expect(screen.queryByText('workers')).toBeNull()
+    expect(screen.queryByText('worker')).toBeNull()
   })
 
   it('moves focus into Workspace controls without selecting a Session while a main panel is active', () => {

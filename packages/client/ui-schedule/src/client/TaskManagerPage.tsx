@@ -58,7 +58,8 @@ type StatusFilter = 'all' | ScheduleCatalogEntry['status']
  */
 export function TaskManagerPage(props: TaskManagerPageProps) {
   const { useCatalog, onNewTask, onClearEnded, onRetry, onCreateTask, useWorkspaces, t } = props
-  const workspaces = useWorkspaces(snapshot => snapshot)
+  const workspaceSnapshot = useWorkspaces(snapshot => snapshot)
+  const workspaces = { ...workspaceSnapshot, items: workspaceSnapshot.items.filter(workspace => !workspace.hidden) }
   const [createMenuOpen, setCreateMenuOpen] = useState(false)
   const [manualOpen, setManualOpen] = useState(false)
   const catalog = useCatalog(snapshot => snapshot)

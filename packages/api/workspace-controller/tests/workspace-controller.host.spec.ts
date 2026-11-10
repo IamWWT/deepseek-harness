@@ -116,6 +116,18 @@ async function nextFrame(
 }
 
 describe('WorkspaceController commands', () => {
+  it('unhides an existing Workspace when its directory is adopted again', async () => {
+    const { controller, ctx, root } = await harness()
+    const path = stageDir(root, 'adopt-hidden')
+    const created = await controller.create({ path })
+    const workspace = ctx.workspaceRegistry.get(created.workspace.workspaceId)!
+    await workspace.setHidden(true)
+    const adopted = await controller.create({ path })
+    expect(adopted.created).toBe(false)
+    expect(adopted.workspace.hidden).toBe(false)
+    expect(ctx.workspaceRegistry.get(created.workspace.workspaceId)?.hidden).toBe(false)
+  })
+
   it('serializes concurrent path adoption and preserves an existing title', async () => {
     const { controller, root } = await harness()
     const path = stageDir(root, 'alpha')

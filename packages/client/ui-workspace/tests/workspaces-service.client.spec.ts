@@ -60,6 +60,7 @@ function workspace(
     sessionIds,
     createdAt,
     updatedAt: createdAt,
+    hidden: false,
   }
 }
 
@@ -806,6 +807,45 @@ describe('UiWorkspaceService', () => {
     expect(b.selectPanel).toHaveBeenCalledWith(null)
   })
 
+  it('keeps a hidden Workspace out of the implicit New Session target', async () => {
+    const current = summary('current', { cwd: '/w/workers-home', updatedAt: 2 })
+    const other = summary('other', { cwd: '/w/shown-home', updatedAt: 1 })
+    const b = bench({
+      sessions: sessionState([current, other]),
+      workspaces: workspaceState([
+        { ...workspace('workers-home', [current.id]), hidden: true },
+        workspace('shown-home', [other.id]),
+      ]),
+    })
+    // Startup restoration already declines the hidden Workspace.
+    await vi.waitFor(() => {
+      expect(b.sessions.retain).toHaveBeenCalledExactlyOnceWith(sid('created-shown-home'), { source: 'mainView' })
+    })
+    b.sessions.create.mockClear()
+    b.sessions.retain.mockClear()
+
+    // The selection sits in a hidden Workspace, so New Session has no implicit
+    // target there and takes the recent visible Workspace instead.
+    b.uiWorkspace.openSession(current.id)
+    b.uiWorkspace.startSession()
+    await vi.waitFor(() => {
+      expect(b.sessions.create).toHaveBeenCalledExactlyOnceWith({ workspaceId: wid('shown-home') })
+    })
+    await vi.waitFor(() => {
+      expect(b.sessions.retain).toHaveBeenLastCalledWith(sid('created-shown-home'), { source: 'mainView' })
+    })
+
+    // An explicit target still opens the hidden Workspace.
+    b.sessions.create.mockClear()
+    b.uiWorkspace.startSession(wid('workers-home'))
+    await vi.waitFor(() => {
+      expect(b.sessions.create).toHaveBeenCalledExactlyOnceWith({ workspaceId: wid('workers-home') })
+    })
+    await vi.waitFor(() => {
+      expect(b.sessions.retain).toHaveBeenLastCalledWith(sid('created-workers-home'), { source: 'mainView' })
+    })
+  })
+
   describe('startSession draft initialization', () => {
     it.each<{ name: string; options: DraftInitializationOptions }>([
       { name: 'plain text', options: { prompt: '草稿 🧭\nsecond line', clearPreviousDraft: true } },
@@ -1062,6 +1102,24 @@ describe('UiWorkspaceService', () => {
       sessions: sessionState([summary('saved', { blank: true })]),
       workspaces: workspaceState(),
     })
+    expect(b.sessions.retain).toHaveBeenCalledExactlyOnceWith(sid('saved'), { source: 'mainView' })
+    expect(b.sessions.create).not.toHaveBeenCalled()
+  })
+
+  it('reopens a saved Session in a hidden Workspace without selecting that Workspace', () => {
+    persistSelection({ sessionId: sid('saved') })
+    const b = bench({
+      sessions: sessionState([
+        summary('saved', { blank: true, cwd: '/w/workers-home' }),
+        summary('other', { cwd: '/w/shown-home', updatedAt: 5 }),
+      ]),
+      workspaces: workspaceState([
+        { ...workspace('workers-home', [sid('saved')]), hidden: true },
+        workspace('shown-home', [sid('other')]),
+      ]),
+    })
+    // Restoration names the saved identity, never the hidden Workspace: no blank
+    // is bound or created there, and no Workspace is connected on its behalf.
     expect(b.sessions.retain).toHaveBeenCalledExactlyOnceWith(sid('saved'), { source: 'mainView' })
     expect(b.sessions.create).not.toHaveBeenCalled()
   })

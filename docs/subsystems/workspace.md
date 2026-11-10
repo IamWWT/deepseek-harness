@@ -51,6 +51,14 @@ interface Workspace {
   readonly updatedAt: string
 
   /**
+   * Presentation-only visibility: a hidden Workspace and its Sessions are
+   * omitted from default browsing, pickers, and search, while remaining
+   * addressable by Session identity. Hiding never deletes the directory,
+   * Session logs, or membership.
+   */
+  readonly hidden: boolean
+
+  /**
    * Header-validated sessions in manually owned order: a new session is
    * prepended at attach, explicit reordering goes through
    * `insertSessionBefore`, and activity never reorders. The durable candidate
@@ -69,6 +77,13 @@ interface Workspace {
    * @returns resolution after durability.
    */
   setTitle(title: string): Promise<void>
+
+  /**
+   * Replace the presentation-only hidden flag durably.
+   * @param hidden - Whether default browsing omits this Workspace and its Sessions.
+   * @returns resolution after durability.
+   */
+  setHidden(hidden: boolean): Promise<void>
 
   /**
    * Prepend a session to this workspace's candidate account. An already
@@ -116,6 +131,8 @@ interface Workspace {
   status(): Promise<'ok' | 'missing-dir'>
 }
 ```
+
+A hidden Workspace is a presentation target rather than a deleted or archived one: `setHidden(true)` keeps the record, directory, membership, and Session logs, while the workspace browser, picker, and search omit the Workspace and every Session it accounts. Consumers still address a hidden Workspace or Session by identity, `setHidden(false)` restores their recorded positions, and the controller's explicit `create` on the directory unhides it so re-adoption is the recovery path. The flag is durable and defaults to false for records written before it existed.
 
 Ownership truth is the record's ordered `sessionIds`, never derived from session cwd. Membership validates the recorded header cwd against the workspace path; an existing candidate remains owned when its fully qualified cwd fails resolution or directory stat with `ENOENT`. This preserves missing-directory and dangling-symlink accounts without admitting new sessions. Failed writes reject (`insertSessionBefore` account errors as `WorkspaceMoveInvalidError`, storage failures as plain errors); every accepted mutation stamps `updatedAt` and durably prunes candidates that no longer pass the membership check.
 

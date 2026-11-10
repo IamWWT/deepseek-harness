@@ -29,7 +29,7 @@ const wid = (id: string) => id as WorkspaceId
 function workspace(id: string, title = id): WorkspaceView {
   return {
     workspaceId: wid(id), path: `/projects/${id}`, title, sessionIds: [],
-    createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z',
+    createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z', hidden: false,
   }
 }
 function hook<T>(snapshot: T) {
@@ -139,6 +139,11 @@ describe('WorkspacePicker', () => {
     expect(screen.getByRole('menuitem', { name: 'Alone' }).querySelector('[title]')).toBeNull()
     fireEvent.click(screen.getByRole('menuitem', { name: 'Shared two/a/Shared' }))
     expect(b.onPick).toHaveBeenCalledWith(wid('beta'))
+  })
+
+  it('omits hidden Workspaces from the choice list', () => {
+    mount([workspace('alpha', 'Alpha'), { ...workspace('workers', 'Workers'), hidden: true }])
+    expect(screen.getAllByRole('menuitem').map(entry => entry.textContent)).toEqual(['Alpha', '添加工作区…'])
   })
 
   it('opens the composed directory flow, adopts its picked path, and selects the returned Workspace', async () => {

@@ -84,7 +84,8 @@ export interface UiWorkspace {
    * Open the Workspace blank `connectWorkspace` resolves, so New Session returns to that blank's
    * unsent draft. A creation the Host refuses is shown through the Workspace notice and leaves the
    * selection as it was.
-   * @param workspaceId - explicit target; absent inherits the current or most recent Workspace.
+   * @param workspaceId - explicit target, which may be hidden; absent inherits the current or most
+   * recent visible Workspace.
    * @param options - initial content, the blank's preset, and `whenDraftExists`, which decides
    * whether existing text or attachments are kept, replaced, or followed by the prompt.
    */
@@ -342,9 +343,11 @@ class UiWorkspaceService extends Service implements UiWorkspace {
     const workspace = this.workspaces.list.getSnapshot()
     const sessions = this.sessions.list.getSnapshot()
     const current = this.mainReference?.sessionId
+    // A hidden Workspace is never an implicit target: New Session falls back to
+    // the recent visible one instead of appending a row no browsing surface shows.
     const currentWorkspaceId = current === undefined
       ? undefined
-      : workspace.items.find(item => item.sessionIds.includes(current))?.workspaceId
+      : workspace.items.find(item => !item.hidden && item.sessionIds.includes(current))?.workspaceId
     const recent = workspace.phase === 'ready' && sessions.phase === 'ready'
       ? recentWorkspace(workspace.items, sessions.byId)
       : undefined
@@ -469,8 +472,12 @@ class UiWorkspaceService extends Service implements UiWorkspace {
       return
     }
     const summary = saved.sessionId === undefined ? undefined : sessions.byId[saved.sessionId]
-    const workspace = summary === undefined ? undefined
+    const owner = summary === undefined ? undefined
       : workspaces.items.find(item => item.sessionIds.includes(summary.id))
+    // A hidden Workspace is never an implicit target: restoration neither binds
+    // nor creates a blank in one, and falls back to the recent visible Workspace.
+    // The saved Session itself stays addressable by identity, so it reopens as-is.
+    const workspace = owner?.hidden === true ? undefined : owner
     if (summary !== undefined && (!summary.blank || workspace === undefined)) {
       this.replaceMain(summary.id, this.lifetime.signal, 'preserve')
       return
@@ -573,7 +580,7 @@ function creationFailureMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
 }
 
-/** Stable tie-breaking follows Host Workspace order. */
+/** Stable tie-breaking follows Host Workspace order. Hidden Workspaces never qualify. */
 function recentWorkspace(
   workspaces: readonly WorkspaceView[],
   sessions: SessionListState['byId'],
@@ -581,6 +588,8 @@ function recentWorkspace(
   let selected: WorkspaceId | undefined
   let selectedTime = Number.NEGATIVE_INFINITY
   for (const workspace of workspaces) {
+    // Skipping here, not at each caller: every implicit target shares this policy.
+    if (workspace.hidden) continue
     let latest = Number.NEGATIVE_INFINITY
     for (const sessionId of workspace.sessionIds) {
       const session = sessions[sessionId]

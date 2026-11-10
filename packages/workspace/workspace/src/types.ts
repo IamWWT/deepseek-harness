@@ -87,6 +87,14 @@ export interface Workspace {
   readonly updatedAt: string
 
   /**
+   * Presentation-only visibility: a hidden Workspace and its Sessions are
+   * omitted from default browsing, pickers, and search, while remaining
+   * addressable by Session identity. Hiding never deletes the directory,
+   * Session logs, or membership.
+   */
+  readonly hidden: boolean
+
+  /**
    * Header-validated sessions in manually owned order: a new session is
    * prepended at attach, explicit reordering goes through
    * `insertSessionBefore`, and activity never reorders. The durable candidate
@@ -105,6 +113,13 @@ export interface Workspace {
    * @returns resolution after durability.
    */
   setTitle(title: string): Promise<void>
+
+  /**
+   * Replace the presentation-only hidden flag durably.
+   * @param hidden - Whether default browsing omits this Workspace and its Sessions.
+   * @returns resolution after durability.
+   */
+  setHidden(hidden: boolean): Promise<void>
 
   /**
    * Prepend a session to this workspace's candidate account. An already
